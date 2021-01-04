@@ -5,13 +5,14 @@ pub mod serial;
 pub mod vga_buffer;
 pub mod interrupts;
 pub mod gdt;
+pub mod handler_table;
 
-use pc_keyboard::DecodedKey;
 use core::panic::PanicInfo;
+use crate::handler_table::HandlerTable;
 
-pub fn init(timer_handler: fn(), keyboard_handler: fn(DecodedKey)) {
+pub fn init(handlers: HandlerTable) {
     gdt::init();
-    interrupts::init_idt(timer_handler, keyboard_handler);
+    interrupts::init_idt(handlers);
     unsafe { interrupts::PICS.lock().initialize() };
     x86_64::instructions::interrupts::enable();
 }

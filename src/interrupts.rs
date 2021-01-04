@@ -3,14 +3,10 @@ use crate::{println, gdt};
 use lazy_static::lazy_static;
 use pic8259_simple::ChainedPics;
 use spin::Mutex;
-use pc_keyboard::DecodedKey;
+use crate::handler_table::HandlerTable;
 
 lazy_static! {
-    static ref TIMER_HANDLER: Mutex<Option<fn()>> = Mutex::new(None);
-}
-
-lazy_static! {
-    static ref KEY_HANDLER: Mutex<Option<fn(DecodedKey)>> = Mutex::new(None);
+    static ref HANDLERS: Mutex<Option<HandlerTable>> = Mutex::new(None);
 }
 
 lazy_static! {
@@ -27,9 +23,8 @@ lazy_static! {
     };
 }
 
-pub fn init_idt(timer_handler: fn(), keyboard_handler: fn(DecodedKey)) {
-    *(TIMER_HANDLER.lock()) = Some(timer_handler);
-    *(KEY_HANDLER.lock()) = Some(keyboard_handler);
+pub fn init_idt(handlers: HandlerTable) {
+    *(HANDLERS.lock()) = Some(handlers);
     IDT.load();
 }
 
@@ -71,8 +66,9 @@ impl InterruptIndex {
 extern "x86-interrupt" fn timer_interrupt_handler(
     _stack_frame: &mut InterruptStackFrame)
 {
-    if let Some(handler) = *TIMER_HANDLER.lock() {
-        (handler)();
+    let h = &*HANDLERS.lock();
+    if let Some(handler) = h {
+        handler.handle_timer();
     }
     unsafe {
         PICS.lock()
@@ -99,8 +95,9 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(
     let scancode: u8 = unsafe { port.read() };
     if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
         if let Some(key) = keyboard.process_keyevent(key_event) {
-            if let Some(handler) = *KEY_HANDLER.lock() {
-                (handler)(key);
+            let h = &*HANDLERS.lock();
+            if let Some(handler) = h {
+                handler.handle_keyboard(key);
             }
         }
     }
