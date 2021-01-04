@@ -5,17 +5,9 @@ pub mod serial;
 pub mod vga_buffer;
 pub mod interrupts;
 pub mod gdt;
-pub mod demo_handler;
 
 use pc_keyboard::DecodedKey;
 use core::panic::PanicInfo;
-
-pub trait InterruptHandler {
-    fn new() -> Self;
-    fn first_tick(&mut self);
-    fn regular_tick(&mut self);
-    fn key(&mut self, key: Option<DecodedKey>);
-}
 
 pub fn init(timer_handler: fn(), keyboard_handler: fn(DecodedKey)) {
     gdt::init();
